@@ -254,8 +254,8 @@ function callback_createInvite() {
 		const options = {
 			Event:`Casual computer ${translations[inviteOptions.variant]} infinite chess game`,
 			youAreColor: "white",
-			currentEngine: "engineCheckmatePractice",
-			engineConfig: {engineTimeLimitPerMoveMillis: 500 },
+			currentEngine: "classicEngineRandomMoves",
+			engineConfig: {engineTimeLimitPerMoveMillis: 500 ,engineIs: "black"},
 			variant: inviteOptions.variant,
 		};
 		close(); // Close the invite creation screen

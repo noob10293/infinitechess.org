@@ -158,7 +158,7 @@ async function startEngineGame(options: {
 	/** The "Event" string of the game's metadata */
 	Event: string,
 	youAreColor: 'white' | 'black',
-	currentEngine: 'engineCheckmatePractice'|'classicEngine', // add more union types when more engines are added
+	currentEngine: 'engineCheckmatePractice'|'classicEngine'|"classicEngineRandomMoves", // add more union types when more engines are added
 	engineConfig: EngineConfig,
 	/** Whether the show the Undo and Restart buttons on the gameinfo bar. For checkmate practice games. */
 	showGameControlButtons?: true
@@ -189,7 +189,7 @@ async function startEngineGame(options: {
 		await gameslot.loadGamefile({
 		  metadata,
 		  viewWhitePerspective: options.youAreColor === 'white',
-		  allowEditCoords: true,
+		  allowEditCoords: true,//todo: still can't edit coords
 		});
 	} else if (options.variantOptions) {
 		metadata = {
