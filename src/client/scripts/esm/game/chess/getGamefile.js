@@ -43,7 +43,7 @@ export function getGamefile(longformat) {
 		fullMove: longformat.fullMove,
 		moveRule: longformat.moveRule,
 		positionString: longformat.shortposition,
-		startingPosition: longformat.startingPosition,
+		startingPosition: longformat.positionString,
 		specialRights: longformat.specialRights,
 		gameRules: longformat.gameRules
 	};
@@ -58,13 +58,15 @@ export function getGamefile(longformat) {
 			variantOptions.enpassant = { square: longformat.enpassant, pawn: pawnExpectedSquare };
 		}
 	}
+	longformat.moves = longformat.moves.map(move => move.compact);
+	// console.log(longformat.metadata, { moves: longformat.moves, variantOptions, editor: false });
 	const gmf = new gamefile(longformat.metadata, { moves: longformat.moves, variantOptions, editor: false });
 
-	const attackers = [];
-	const whosTurnItWasAtMoveIndex = moveutil.getWhosTurnAtMoveIndex(gmf, gmf.moveIndex);
-	const futureInCheck = checkdetection.detectCheck(gmf, whosTurnItWasAtMoveIndex, attackers);
-	gmf.inCheck = futureInCheck;
-	gmf.attackers = attackers;
+	// const attackers = [];
+	// const whosTurnItWasAtMoveIndex = moveutil.getWhosTurnAtMoveIndex(gmf, gmf.moveIndex);
+	// const futureInCheck = checkdetection.detectCheck(gmf, whosTurnItWasAtMoveIndex, true);
+	// gmf.inCheck = futureInCheck.royalsInCheck;
+	// gmf.attackers = attackers;
 	// console.log(attackers);
 
 	return gmf;
