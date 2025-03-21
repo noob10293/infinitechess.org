@@ -33,6 +33,12 @@ import copyutils from "../getGamefile.js";
 // type Coords = import("../../chess/util/coordutil").Coords;
 // type Vec2 = import("../../util/math").Vec2;
 
+/**
+ * Let the main thread know that the Worker has finished fetching and
+ * its code is now executing! We may now hide the spinny pawn loading animation.
+ */
+postMessage('readyok');
+
 
 
 // Here, the engine webworker received messages from the outside
