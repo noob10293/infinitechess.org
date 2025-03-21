@@ -6,8 +6,9 @@
  * 
  * @author noob10293
  * some basic i/o and boilerplate code from engineCheckmatePractice by Andreas Tsevas
+ * some code turned out pretty similar to the engines in dev-utils, but that's mostly a coincidence. Some other code was inspired by those after I realized they existed
  * some ideas/inspiration from https://www.youtube.com/watch?v=U4ogK0MIzqk and https://www.youtube.com/watch?v=w4FFX_otR-4
- * some code written by ChatGPT Reason
+ * some code written by ChatGPT
  */
 
 
@@ -220,6 +221,7 @@ const hasDraft = (myObjectSet: Set<MoveDraft>,draft: MoveDraft): boolean => {
  * This function is called from outside and initializes the engine calculation given the provided gamefile
  */
 async function runEngine() {
+	//todo: get rid of the try thing?
 	try {
 		// if ((gamefile.ourPieces.kingsB?.length ?? 0) !== 0) {// if black king exists in our pieces
 		// 	weAre = "black"; //we refers to the engine
@@ -253,7 +255,9 @@ async function runEngine() {
 		}
 		console.log("NEW");
 		const moves:Set<MoveDraft> = new Set();
+		let moveschecked = 0;
 		// get the moves for our piece
+		const t = Date.now();
 		for (let i = 0; i < coordlistours.length; i++) {
 			const ourcoord = coordlistours[i]!;
 			const ourpiece = piecelistours[i]!;
@@ -266,6 +270,7 @@ async function runEngine() {
 				const theirpiece = piecelisttheirs[j]!;
 				const intersections = getIntersectionBetweenTwoPieces(ourcoord,ourpiece,theircoord, theirpiece);
 				for (const move of intersections) {
+					moveschecked++;
 					//doesnt intersect
 					if (move.intersection === null) continue;
 					//move is to same square
@@ -279,7 +284,7 @@ async function runEngine() {
 					// check if illegal
 					//todo: dont check if alr checked
 					// console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, move.intersection),ourpiece,move.intersection,theirpiece);
-					if (!legalmoves.checkIfMoveLegal(legalMoves, ourcoord, move.intersection)) {//console.log("NOPE");
+					if (!legalmoves.checkIfMoveLegal(input_gamefile,legalMoves, ourcoord, move.intersection,weAre)) {//console.log("NOPE");
 						continue;} //else console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, move.intersection),ourpiece,move.intersection,theirpiece);
 
 					moves.add({ startCoords: ourcoord, endCoords: move.intersection });
@@ -292,7 +297,7 @@ async function runEngine() {
 		// console.log(globalSurvivalPlies);
 		// console.log(globallyBestVariation);
 		// console.log(enginePositionCounter);
-
+		console.log(moveschecked,(Date.now() - t),moves.size);
 		// submit engine move after enough time has passed
 		const time_now = Date.now();
 		if (time_now - engineStartTime < engineTimeLimitPerMoveMillis) {
