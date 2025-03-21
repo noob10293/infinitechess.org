@@ -19,15 +19,18 @@
  */
 // @ts-ignore
 import gamefile from "../../../chess/logic/gamefile";
-import type { MoveDraft } from "../../../chess/logic/movepiece";
+import type { Move, MoveDraft } from "../../../chess/logic/movepiece";
 import type { Coords } from "../../../chess/util/coordutil";
 import type { Vec2 } from "../../../util/math";
 //@ts-ignore
 import gamefileutility from '../../../chess/util/gamefileutility.js';
 //@ts-ignore
-import legalmoves from '../../../chess/logic/legalmoves.js';
+import legalmoves, { LegalMoves } from '../../../chess/logic/legalmoves.js';
 //@ts-ignore
 import copyutils from "../getGamefile.js";
+//@ts-ignore
+import specialdetect from "../../../chess/logic/specialdetect.js";
+import jsutil from "../../../util/jsutil.js";
 // If the Webworker during creation is not declared as a module, than type imports will have to be imported this way:
 // type gamefile = import("../../chess/logic/gamefile").default;
 // type MoveDraft = import("../../chess/logic/movepiece").MoveDraft;
@@ -49,7 +52,7 @@ self.onmessage = function(e: MessageEvent) {
 	// input_gamefile = message.gamefile;
 	input_gamefile = copyutils.getGamefile(message.lf);
 	// initvariant.initPieceMovesets(input_gamefile,input_gamefile.metadata);
-	console.log(input_gamefile);
+	// console.log(input_gamefile);
 	engineTimeLimitPerMoveMillis = message.engineConfig.engineTimeLimitPerMoveMillis;
 	globallyBestScore = -Infinity;
 	globallyBestVariation = {};
@@ -91,18 +94,18 @@ let globallyBestVariation: { [key: number]: [number, Coords] };
 // only used for parsing in the position
 const pieceNameDictionary: { [pieceType: string]: number } = {
 	// 0 corresponds to a captured piece
-	"queensW": 1,
-	"rooksW": 2,
-	"bishopsW": 3,
-	"knightsW": 4,
-	"kingsW": 5,
-	"pawnsW": 6 ,
-	"amazonsW": 7,
-	"hawksW": 8,
-	"chancellorsW": 9,
-	"archbishopsW": 10,
-	"knightridersW": 11,
-	"huygensW": 12
+	"queen": 1,
+	"rook": 2,
+	"bishop": 3,
+	"knight": 4,
+	"king": 5,
+	"pawn": 6,
+	"amazon": 7,
+	"hawk": 8,
+	"chancellor": 9,
+	"archbishop": 10,
+	"knightrider": 11,
+	"huygen": 12
 };
 
 function invertPieceNameDictionary(json: { [key: string]: number }) {
@@ -149,21 +152,21 @@ let wiggleroomDictionary: { [key: number]: number };
 function initEvalWeightsAndSearchProperties() {
 
 
-	// weights for piece values of white pieces TODO: replace with actual values
+	// weights for piece values according to Rayo(10¹⁰⁰) - ω₁ᶜʰ'³ | Lℕ Harrytubby0184
 	pieceExistenceEvalDictionary = {
 		0: 0, // 0 corresponds to a captured piece
-		1: -1_000_000, // queen
-		2: -800_000, // rook
-		3: -100_000, // bishop
-		4: -800_000, // knight
+		1: -1_750_000, // queen
+		2: -875_000, // rook
+		3: -500_000, // bishop
+		4: -312_500, // knight
 		5: 0, // king - cannot be captured
 		6: -100_000, // pawn
-		7: -1_000_000, // amazon
-		8: -800_000, // hawk
-		9: -800_000, // chancellor
-		10: -800_000, // archbishop
-		11: -800_000, // knightrider
-		12: -800_000 // huygen
+		7: -1_750_000, // amazon
+		8: -875_000, // hawk
+		9: -1_375_000, // chancellor
+		10: -500_000, // archbishop
+		11: -312_500, // knightrider
+		12: -875_000 // huygen
 	};
 
 	// number of candidate squares for white rider pieces to consider around an intersection
@@ -178,11 +181,11 @@ function initEvalWeightsAndSearchProperties() {
 		12: 5 // huygen
 	};
 
-	if (weAre === "black") {
-		for (const delta of pawnDeltas) {
-			delta.dy = -delta.dy;
-		}
-	}
+	// if (weAre === "black") {
+	// 	for (const delta of pawnDeltas) {
+	// 		delta.dy = -delta.dy;
+	// 	}
+	// }
 	
 	engineInitialized = true;
 }
@@ -215,13 +218,20 @@ const hasDraft = (myObjectSet: Set<MoveDraft>,draft: MoveDraft): boolean => {
   
 	return false;
 };
+function enginePieceTypeToPieceType(enginePieceType: EnginePieceType, color: "white" | "black"): string {
+	return `${enginePieceType}s${color[0]!.toUpperCase()}`;
+}
 
+function pieceTypeToEnginePieceType(pieceType: string): EnginePieceType {
+	return pieceType.slice(0, -2) as EnginePieceType;
+}
 
 /**
  * This function is called from outside and initializes the engine calculation given the provided gamefile
  */
 async function runEngine() {
 	//todo: get rid of the try thing?
+	// todo: make enginegame handle engine not returing move in time better?
 	try {
 		// if ((gamefile.ourPieces.kingsB?.length ?? 0) !== 0) {// if black king exists in our pieces
 		// 	weAre = "black"; //we refers to the engine
@@ -240,64 +250,28 @@ async function runEngine() {
 			const pieceType = input_gamefile.piecesOrganizedByKey[key]!;
 			if (pieceType.slice(-1).toLowerCase() === weAre[0]) {
 				const coords = key.split(',').map(Number);
-				// start_piecelistwhite.push(pieceNameDictionary[pieceType]!);
-				piecelistours.push(pieceType.slice(0,-2));
-				// shift all white pieces, so that the black royal is at [0,0]
-				coordlistours.push([coords[0]!,coords[1]!]);
+				piecelistours.push(pieceTypeToEnginePieceType(pieceType));
+				coordlistours.push([coords[0]!, coords[1]!]);
 			} else if (pieceType.slice(-1).toLowerCase() === theyAre[0]) {
 				const coords = key.split(',').map(Number);
-				// start_piecelistblack.push(pieceNameDictionary[pieceType]!);
-				piecelisttheirs.push(pieceType.slice(0,-2));
-				coordlisttheirs.push([coords[0]!,coords[1]!]);
+				piecelisttheirs.push(pieceTypeToEnginePieceType(pieceType));
+				coordlisttheirs.push([coords[0]!, coords[1]!]);
 			} else {
 				return console.error("Piece is not white or black!");
 			}
 		}
 		console.log("NEW");
 		const moves:Set<MoveDraft> = new Set();
-		let moveschecked = 0;
 		// get the moves for our piece
 		const t = Date.now();
-		for (let i = 0; i < coordlistours.length; i++) {
-			const ourcoord = coordlistours[i]!;
-			const ourpiece = piecelistours[i]!;
-			const piecemoved = gamefileutility.getPieceAtCoords(input_gamefile, ourcoord);
-			const legalMoves = legalmoves.calculate(input_gamefile, piecemoved!);
-			// console.log(legalMoves,ourpiece);
-			//todo: don't check for all pieces if its a non-sliding piece, check for own pieces as well if it is
-			for (let j = 0; j < coordlisttheirs.length; j++) {
-				const theircoord = coordlisttheirs[j]!;
-				const theirpiece = piecelisttheirs[j]!;
-				const intersections = getIntersectionBetweenTwoPieces(ourcoord,ourpiece,theircoord, theirpiece);
-				for (const move of intersections) {
-					moveschecked++;
-					//doesnt intersect
-					if (move.intersection === null) continue;
-					//move is to same square
-					if (move.intersection === ourcoord) continue;
-					// they on same line
-					if (move.intersection === "infinite") move.intersection = theircoord;
-
-					// check if move is already in
-					if (hasDraft(moves,{ startCoords: ourcoord, endCoords: move.intersection })) {continue;}
-
-					// check if illegal
-					//todo: dont check if alr checked
-					// console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, move.intersection),ourpiece,move.intersection,theirpiece);
-					if (!legalmoves.checkIfMoveLegal(input_gamefile,legalMoves, ourcoord, move.intersection,weAre)) {//console.log("NOPE");
-						continue;} //else console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, move.intersection),ourpiece,move.intersection,theirpiece);
-
-					moves.add({ startCoords: ourcoord, endCoords: move.intersection });
-				}
-			}
-		}
+		const moveschecked = getLegalMoves( moves);
 		globallyBestMove = Array.from(moves)[Math.floor(Math.random() * moves.size)]!;
 		// console.log(isBlackInTrap(start_piecelist, start_coordlist));
 		// console.log(get_white_candidate_moves(start_piecelist, start_coordlist));
 		// console.log(globalSurvivalPlies);
 		// console.log(globallyBestVariation);
 		// console.log(enginePositionCounter);
-		console.log(moveschecked,(Date.now() - t),moves.size);
+		console.log("moveschecked:", moveschecked, "mstimetaken:", (Date.now() - t), "legalmoves:", moves.size, "bestmove:", globallyBestMove);
 		// submit engine move after enough time has passed
 		const time_now = Date.now();
 		if (time_now - engineStartTime < engineTimeLimitPerMoveMillis) {
@@ -311,10 +285,110 @@ async function runEngine() {
 	}
 }
 
+function getLegalMoves( moves: Set<MoveDraft>) {
+	let moveschecked = 0;
+	for (let i = 0; i < coordlistours.length; i++) {
+		const ourcoord = coordlistours[i]!;
+		const ourpiece = piecelistours[i]!;
+		const piecemoved = gamefileutility.getPieceAtCoords(input_gamefile, ourcoord);
+		const legalMoves = legalmoves.calculate(input_gamefile, piecemoved!);
+		console.log(legalMoves, ourpiece);
+		//todo: don't check for all pieces if its a non-sliding piece, check for own pieces as well if it is
+		moveschecked = getPieceMoves(ourpiece, legalMoves, moveschecked, moves, ourcoord);
+	}
+	return moveschecked;
+}
 
+function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moveschecked: number, moves: Set<MoveDraft>, ourcoord: Coords) {
+	for (let j = 0; j < coordlisttheirs.length; j++) {
+		const theircoord = coordlisttheirs[j]!;
+		const theirpiece = piecelisttheirs[j]!;
+		if (!isSlidingPiece(ourpiece)) {
+			const pieceMoves = legalMoves.individual;
+			//todo: handle checkmates, enpassents, castling, promotion?
+			for (const mv of pieceMoves) {
+				moveschecked++;
+				// check if move is already in
+				if (hasDraft(moves, { startCoords: ourcoord, endCoords: mv })) continue;
 
+				const md: MoveDraft = { startCoords: ourcoord, endCoords: mv };
+				if (mv.promoteTrigger) {
+					delete mv.promoteTrigger;
+					specialdetect.transferSpecialFlags_FromCoordsToMove(mv,md);
+					const promotablePieces = ["queen", "rook", "bishop", "knight"];
+					for (const enginepiecetype of promotablePieces) {
+						md.promotion = enginePieceTypeToPieceType(enginepiecetype as EnginePieceType, weAre);
+						moves.add(jsutil.deepCopyObject(md));
+					}
+					continue;
+				}
+				specialdetect.transferSpecialFlags_FromCoordsToMove(mv,md);
+				moves.add(md);
+			}
+		} else {
+			const intersections = getIntersectionBetweenTwoPieces(ourcoord, ourpiece, theircoord, theirpiece);
+			for (const move of intersections) {
+				moveschecked++;
+				//doesnt intersect
+				if (move.intersection === null) continue;
+				//move is to same square
+				if (move.intersection === ourcoord) continue;
+				// they on same line
+				if (move.intersection === "infinite") move.intersection = theircoord;
 
+				if (move.move1.kind === "point") continue; //will never happen, todo: change ts to avoid having to do this
 
+				getWiggleRoomSquares(move.move1.line.type, wiggleroomDictionary[pieceNameDictionary[ourpiece]!]!, move.intersection).forEach((wiggleRoomSquare) => {
+					verifyAndAddMove(moves, legalMoves, ourcoord, wiggleRoomSquare);
+				});
+			}
+		}
+	}
+	return moveschecked;
+}
+
+function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coords, toCoord:Coords) {
+
+	// check if move is already in
+	if (hasDraft(moves, { startCoords: ourcoord, endCoords: toCoord })) return;
+
+	// check if illegal
+	//todo: dont check if alr checked, aka transposition table?
+	// console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, toCoord),ourpiece,toCoord,theirpiece);
+	if (!legalmoves.checkIfMoveLegal(input_gamefile, legalMoves, ourcoord, toCoord, weAre)) {
+		//console.log("NOPE");
+		return;
+	} //else console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, toCoord),ourpiece,toCoord,theirpiece);
+
+	moves.add({ startCoords: ourcoord, endCoords: toCoord });
+}
+function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord: Coords): Coords[] {
+	const nearbySquares: Coords[] = [];
+	const deltas: { dx: number, dy: number }[] = [];
+
+	switch (lineType) {
+		case "horizontal":
+			deltas.push({ dx: 1, dy: 0 }, { dx: -1, dy: 0 });
+			break;
+		case "vertical":
+			deltas.push({ dx: 0, dy: 1 }, { dx: 0, dy: -1 });
+			break;
+		case "diag1": // (\) diagonal
+			deltas.push({ dx: 1, dy: 1 }, { dx: -1, dy: -1 });
+			break;
+		case "diag2": // (/) diagonal
+			deltas.push({ dx: 1, dy: -1 }, { dx: -1, dy: 1 });
+			break;
+	}
+
+	for (const { dx, dy } of deltas) {
+		for (let i = 1; i <= wiggleRoom; i++) {
+			nearbySquares.push([coord[0] + i * dx, coord[1] + i * dy]);
+		}
+	}
+
+	return nearbySquares;
+}
 
 //diagonals, horizontals and verticals all represented by a single value
 // diag 1 is top left to bottom right(\), value is y intercept
@@ -340,29 +414,32 @@ function bishopMoves(p: Coords): EngineMove[] {
 		{ kind: 'line', line: { type: 'diag2', value: p[1] + p[0] } },
 	];
 }
-// todo: promotion, checkmate, stalemate, 50 move rule, 3 fold repetition
+
+// todo: promotion, 50 move rule?, 3 fold repetition?
+
+// not needed anymore
 // explicitly includes own position
 // Deltas for knight and pawn and king (assuming white pawn moving upward).
-const knightDeltas = [
-	{ dx: 0, dy: 0 },
-	{ dx: 2, dy: 1 }, { dx: 2, dy: -1 },
-	{ dx: -2, dy: 1 }, { dx: -2, dy: -1 },
-	{ dx: 1, dy: 2 }, { dx: 1, dy: -2 },
-	{ dx: -1, dy: 2 }, { dx: -1, dy: -2 },
-];
-const pawnDeltas = [
-	{ dx: 0, dy: 0 },
-	{ dx: 0, dy: 1 },
-	{ dx: -1, dy: 1 }, { dx: 1, dy: 1 },//captures
-	{ dx: 0, dy: 2 },//double move
-];
-//todo: add castling and en passant special move/coords flags??
-const kingDeltas = [
-	{ dx: 0, dy: 0 },
-	{ dx: 0, dy: 1 }, { dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
-	{ dx: 1, dy: 1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: -1, dy: -1 },
-	{ dx: -2, dy: 0 },{ dx: 2, dy: 0 },//castling
-];
+// const knightDeltas = [
+// 	{ dx: 0, dy: 0 },
+// 	{ dx: 2, dy: 1 }, { dx: 2, dy: -1 },
+// 	{ dx: -2, dy: 1 }, { dx: -2, dy: -1 },
+// 	{ dx: 1, dy: 2 }, { dx: 1, dy: -2 },
+// 	{ dx: -1, dy: 2 }, { dx: -1, dy: -2 },
+// ];
+// const pawnDeltas = [
+// 	{ dx: 0, dy: 0 },
+// 	{ dx: 0, dy: 1 },
+// 	{ dx: -1, dy: 1 }, { dx: 1, dy: 1 },//captures
+// 	{ dx: 0, dy: 2 },//double move
+// ];
+// //todo: add castling and en passant special move/coords flags?? and promotion?
+// const kingDeltas = [
+// 	{ dx: 0, dy: 0 },
+// 	{ dx: 0, dy: 1 }, { dx: 0, dy: -1 }, { dx: 1, dy: 0 }, { dx: -1, dy: 0 },
+// 	{ dx: 1, dy: 1 }, { dx: 1, dy: -1 }, { dx: -1, dy: 1 }, { dx: -1, dy: -1 },
+// 	{ dx: -2, dy: 0 },{ dx: 2, dy: 0 },//castling
+// ];
 
 const nonSlidingPieces = new Set<EnginePieceType>(["knight", "king", "pawn"]);
 
@@ -378,9 +455,9 @@ function getMoves(p: Coords, piece: EnginePieceType): EngineMove[] {
 		case 'queen': return [...rookMoves(p), ...bishopMoves(p)];
 		case 'rook': return rookMoves(p);
 		case 'bishop': return bishopMoves(p);
-		case 'knight': return deltasToMovelist(knightDeltas, p);
-		case 'pawn': return deltasToMovelist(pawnDeltas, p);
-		case 'king': return deltasToMovelist(kingDeltas, p);
+		// case 'knight': return deltasToMovelist(knightDeltas, p);
+		// case 'pawn': return deltasToMovelist(pawnDeltas, p);
+		// case 'king': return deltasToMovelist(kingDeltas, p);
 		default: return [];
 	}
 }
@@ -464,17 +541,18 @@ function getIntersectionBetweenTwoPieces(
 
 	// todo: move to general func
 	const intersections: Intersection[] = [];
-	if (!isSlidingPiece(piece1)) {
-		const moves1 = getMoves(coord1, piece1);
-		moves1.forEach(m1 => intersections.push({//dummy values except interseciton
-			pointIndex1: 0,
-			pointIndex2: 0,
-			move1: { kind: 'point', point: [0,0] },
-			move2: { kind: 'point', point: [0,0] },
-			intersection: m1.kind === 'point' ? [m1.point[0], m1.point[1]] : null
-		}));
-		return intersections;
-	}
+
+	// if (!isSlidingPiece(piece1)) {
+	// 	const moves1 = getMoves(coord1, piece1);
+	// 	moves1.forEach(m1 => intersections.push({//dummy values except interseciton
+	// 		pointIndex1: 0,
+	// 		pointIndex2: 0,
+	// 		move1: { kind: 'point', point: [0,0] },
+	// 		move2: { kind: 'point', point: [0,0] },
+	// 		intersection: m1.kind === 'point' ? [m1.point[0], m1.point[1]] : null
+	// 	}));
+	// 	return intersections;
+	// }
 
 	const moves1 = getMoves(coord1, "queen");
 	const moves2 = getMoves(coord2, "queen");
