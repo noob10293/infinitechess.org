@@ -233,7 +233,7 @@ function callback_computer() {
 	changePlayMode('computer');
 }
 
-// Also starts local games
+// Also starts local games and engine games
 function callback_createInvite() {
 
 	const inviteOptions = getInviteOptions();

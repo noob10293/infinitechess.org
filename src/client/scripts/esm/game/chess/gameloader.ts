@@ -235,7 +235,7 @@ async function startEngineGame(options: {
 		graphicalPromise = gameslot.loadGamefile({
 			metadata,
 			viewWhitePerspective: options.youAreColor === 'white',
-			allowEditCoords: true,//todo: still can't edit coords
+			allowEditCoords: true,//is coordinate field box, not edit mode
 		});
 	} else if (options.variantOptions) {
 		metadata = {
@@ -246,6 +246,7 @@ async function startEngineGame(options: {
 		graphicalPromise = gameslot.loadGamefile({
 			metadata,
 			viewWhitePerspective: options.youAreColor === 'white',
+			// why no edit coords
 			allowEditCoords: false,
 			additional: { variantOptions: options.variantOptions },
 		});
