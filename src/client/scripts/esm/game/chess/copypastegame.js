@@ -20,7 +20,7 @@ import gameloader from './gameloader.js';
 import colorutil from '../../chess/util/colorutil.js';
 import coordutil from '../../chess/util/coordutil.js';
 import guipause from '../gui/guipause.js';
-import { primeGamefileForCopying } from './primeGamefileForCopying.js';
+import gamecompressor from './gamecompressor.js';
 // Import End
 
 "use strict";
@@ -44,7 +44,7 @@ function copyGame(copySinglePosition) {
 	const gamefile = gameslot.getGamefile();
 	const Variant = gamefile.metadata.Variant;
 
-	const primedGamefile = primeGamefileForCopying(gamefile, copySinglePosition);
+	const primedGamefile = gamecompressor.compressGamefile(gamefile, copySinglePosition);
 	const largeGame = Variant === 'Omega_Squared' || Variant === 'Omega_Cubed' || Variant === 'Omega_Fourth';
 	const specifyPosition = !largeGame;
 	const shortformat = formatconverter.LongToShort_Format(primedGamefile, { compact_moves: 1, make_new_lines: false, specifyPosition });
@@ -117,7 +117,7 @@ function verifyLongformat(longformat) {
      * fullMove
      * startingPosition
      * specialRights
-     * moves
+     * moves: string[] most compact notation
      * gameRules
      */
 
@@ -157,6 +157,10 @@ function verifyWinConditions(winConditions) {
 
 /**
  * Loads a game from the provided game in longformat.
+ * 
+ * TODO: REMOVE A LOT OF THE REDUNDANT LOGIC BETWEEN
+ * THIS FUNCTION AND gameforulator.formulateGame()!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * 
  * @param {Object} longformat - The game in longformat, or primed for copying. This is NOT the gamefile, we'll need to use the gamefile constructor.
  */
 async function pasteGame(longformat) { // game: { startingPosition (key-list), patterns, promotionRanks, moves, gameRules }

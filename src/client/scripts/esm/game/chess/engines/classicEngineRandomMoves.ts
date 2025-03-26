@@ -27,7 +27,7 @@ import gamefileutility from '../../../chess/util/gamefileutility.js';
 //@ts-ignore
 import legalmoves, { LegalMoves } from '../../../chess/logic/legalmoves.js';
 //@ts-ignore
-import copyutils from "../getGamefile.js";
+import gameformulator from "../gameformulator.js";
 //@ts-ignore
 import specialdetect from "../../../chess/logic/specialdetect.js";
 import jsutil from "../../../util/jsutil.js";
@@ -50,7 +50,7 @@ self.onmessage = function(e: MessageEvent) {
 	// console.log("E");
 	const message = e.data;
 	// input_gamefile = message.gamefile;
-	input_gamefile = copyutils.getGamefile(message.lf);
+	input_gamefile = gameformulator.formulateGame(message.lf);
 	// initvariant.initPieceMovesets(input_gamefile,input_gamefile.metadata);
 	// console.log(input_gamefile);
 	engineTimeLimitPerMoveMillis = message.engineConfig.engineTimeLimitPerMoveMillis;
