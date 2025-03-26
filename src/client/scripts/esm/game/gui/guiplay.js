@@ -256,13 +256,14 @@ function callback_createInvite() {
 		else invites.create(inviteOptions);
 	} else if (modeSelected === 'computer') {
 		close(); // Close the invite creation screen
-		const ourColor = inviteOptions.color === 'White' ? 'white' : inviteOptions.color === 'Black' ? 'black' : Math.random() > 0.5 ? 'white' : 'black';
+		let ourColor = inviteOptions.color === 'White' ? 'white' : inviteOptions.color === 'Black' ? 'black' : Math.random() > 0.5 ? 'white' : 'black';
+		ourColor = "white"; // todo: engines or enginegame can't handle going first yet
 		gameloader.startEngineGame({
 			Event: `Casual computer ${translations[inviteOptions.variant]} infinite chess game`,
 			Variant: inviteOptions.variant,
-			youAreColor: ourColor,
-			currentEngine: "classicEngineRandomMoves",
-			// engineConfig: { engineTimeLimitPerMoveMillis: 4000 }, // 4 seconds of think time
+			youAreColor: ourColor,//refers to player color
+			currentEngine: "classicEngineRandomMoves", // checkmatepractice engine cannibalizes own pieces if chosen
+			// engineConfig: { engineTimeLimitPerMoveMillis: 4000, engineIs: "black" }, // 4 seconds of think time
 			engineConfig: { engineTimeLimitPerMoveMillis: 500, engineIs: "black" }, // Half a second for dev testing
 		});
 	}

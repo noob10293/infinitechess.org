@@ -225,13 +225,14 @@ function enginePieceTypeToPieceType(enginePieceType: EnginePieceType, color: "wh
 function pieceTypeToEnginePieceType(pieceType: string): EnginePieceType {
 	return pieceType.slice(0, -2) as EnginePieceType;
 }
-
+let moveschecked = 0;
 /**
  * This function is called from outside and initializes the engine calculation given the provided gamefile
  */
 async function runEngine() {
 	//todo: get rid of the try thing?
 	// todo: make enginegame handle engine not returing move in time better?
+	// todo: handle different difficulties on differently fast devices?
 	try {
 		// if ((gamefile.ourPieces.kingsB?.length ?? 0) !== 0) {// if black king exists in our pieces
 		// 	weAre = "black"; //we refers to the engine
@@ -241,6 +242,7 @@ async function runEngine() {
 		// 	return console.error("No king found in our pieces!");
 		// }
 		// create list of types and coords of white pieces, in order to initialize start_piecelist and start_coordlist
+		// todo: represent pieces better, move this into a func
 		piecelistours = [];
 		coordlistours = [];
 		piecelisttheirs = [];
@@ -262,9 +264,10 @@ async function runEngine() {
 		}
 		console.log("NEW");
 		const moves:Set<MoveDraft> = new Set();
-		// get the moves for our piece
 		const t = Date.now();
-		const moveschecked = getLegalMoves( moves);
+		
+		getLegalMoves( moves);
+
 		globallyBestMove = Array.from(moves)[Math.floor(Math.random() * moves.size)]!;
 		// console.log(isBlackInTrap(start_piecelist, start_coordlist));
 		// console.log(get_white_candidate_moves(start_piecelist, start_coordlist));
@@ -286,68 +289,87 @@ async function runEngine() {
 }
 
 function getLegalMoves( moves: Set<MoveDraft>) {
-	let moveschecked = 0;
 	for (let i = 0; i < coordlistours.length; i++) {
 		const ourcoord = coordlistours[i]!;
 		const ourpiece = piecelistours[i]!;
 		const piecemoved = gamefileutility.getPieceAtCoords(input_gamefile, ourcoord);
 		const legalMoves = legalmoves.calculate(input_gamefile, piecemoved!);
 		console.log(legalMoves, ourpiece);
-		//todo: don't check for all pieces if its a non-sliding piece, check for own pieces as well if it is
-		moveschecked = getPieceMoves(ourpiece, legalMoves, moveschecked, moves, ourcoord);
+		// get the moves for our piece
+		for (let j = 0; j < coordlisttheirs.length; j++) {
+			const theircoord = coordlisttheirs[j]!;
+			const theirpiece = piecelisttheirs[j]!;
+			//todo: don't check for all pieces if its a non-sliding piece, check for own pieces as well? if it is
+			getPieceMoves(ourpiece, legalMoves, moves, ourcoord, theirpiece, theircoord);
+		}
+		// Check intersections with our own pieces
+		// verification should handle intersection w/ own piece, todo: check this for more optimization?
+		for (let k = 0; k < coordlistours.length; k++) {
+			const othercoord = coordlistours[k]!;
+			const otherpiece = piecelistours[k]!;
+			// alr checked all non sliding piece moves
+			if (isSlidingPiece(ourpiece)) {
+				getPieceMoves(ourpiece, legalMoves, moves, ourcoord, otherpiece, othercoord);
+			}
+		}
+		// todo: intersections of intersections?
 	}
-	return moveschecked;
 }
 
-function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moveschecked: number, moves: Set<MoveDraft>, ourcoord: Coords) {
-	for (let j = 0; j < coordlisttheirs.length; j++) {
-		const theircoord = coordlisttheirs[j]!;
-		const theirpiece = piecelisttheirs[j]!;
-		if (!isSlidingPiece(ourpiece)) {
-			const pieceMoves = legalMoves.individual;
-			//todo: handle checkmates, enpassents, castling, promotion?
-			for (const mv of pieceMoves) {
-				moveschecked++;
-				// check if move is already in
-				if (hasDraft(moves, { startCoords: ourcoord, endCoords: mv })) continue;
+function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moves: Set<MoveDraft>, ourcoord: Coords,theirpiece: EnginePieceType,theircoord: Coords) {
+	if (!isSlidingPiece(ourpiece)) {
+		const pieceMoves = legalMoves.individual;
+		for (const mv of pieceMoves) {
+			moveschecked++;
+			// check if move is already in
+			if (hasDraft(moves, { startCoords: ourcoord, endCoords: mv })) continue;
 
-				const md: MoveDraft = { startCoords: ourcoord, endCoords: mv };
-				if (mv.promoteTrigger) {
-					delete mv.promoteTrigger;
-					specialdetect.transferSpecialFlags_FromCoordsToMove(mv,md);
-					const promotablePieces = ["queen", "rook", "bishop", "knight"];
-					for (const enginepiecetype of promotablePieces) {
-						md.promotion = enginePieceTypeToPieceType(enginepiecetype as EnginePieceType, weAre);
-						moves.add(jsutil.deepCopyObject(md));
-					}
-					continue;
-				}
-				specialdetect.transferSpecialFlags_FromCoordsToMove(mv,md);
-				moves.add(md);
+			const md: MoveDraft = { startCoords: ourcoord, endCoords: mv };
+			if (mv.promoteTrigger) {
+				moveschecked--;
+				handlePromotion(mv, md, moves); // if promotion handled, don't add the move
+				continue;
 			}
-		} else {
-			const intersections = getIntersectionBetweenTwoPieces(ourcoord, ourpiece, theircoord, theirpiece);
-			for (const move of intersections) {
-				moveschecked++;
-				//doesnt intersect
-				if (move.intersection === null) continue;
-				//move is to same square
-				if (move.intersection === ourcoord) continue;
-				// they on same line
-				if (move.intersection === "infinite") move.intersection = theircoord;
+			specialdetect.transferSpecialFlags_FromCoordsToMove(mv, md);
+			moves.add(md);
+		}
+	} else {
+		const intersections = getIntersectionBetweenTwoPieces(ourcoord, ourpiece, theircoord, theirpiece);
+		for (const move of intersections) {
+			moveschecked++;
+			//doesnt intersect
+			if (move.intersection === null) continue;
+			//move is to same square
+			if (move.intersection === ourcoord) continue;
+			// they on same line
+			if (move.intersection === "infinite") {move.intersection = theircoord;}
+			// verification should handle trying to move to friendly piece square, todo: maybe check this for more optimization?
 
-				if (move.move1.kind === "point") continue; //will never happen, todo: change ts to avoid having to do this
+			if (move.move1.kind === "point") continue; //will never happen, todo: change ts to avoid having to do this
 
-				getWiggleRoomSquares(move.move1.line.type, wiggleroomDictionary[pieceNameDictionary[ourpiece]!]!, move.intersection).forEach((wiggleRoomSquare) => {
-					verifyAndAddMove(moves, legalMoves, ourcoord, wiggleRoomSquare);
-				});
-			}
+			verifyAndAddMove(moves, legalMoves, ourcoord, move.intersection);
+			getWiggleRoomSquares(move.move1.line.type, wiggleroomDictionary[pieceNameDictionary[ourpiece]!]!, move.intersection).forEach((wiggleRoomSquare) => {
+				moveschecked--;
+				verifyAndAddMove(moves, legalMoves, ourcoord, wiggleRoomSquare);
+			});
 		}
 	}
 	return moveschecked;
 }
 
+function handlePromotion(mv: any, md: MoveDraft, moves: Set<MoveDraft>) {
+	delete mv.promoteTrigger;
+	specialdetect.transferSpecialFlags_FromCoordsToMove(mv, md);
+	const promotablePieces = ["queen", "rook", "bishop", "knight"];
+	for (const enginePieceType of promotablePieces) {
+		md.promotion = enginePieceTypeToPieceType(enginePieceType as EnginePieceType, weAre);
+		moveschecked++;
+		moves.add(jsutil.deepCopyObject(md));
+	}
+}
+
 function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coords, toCoord:Coords) {
+	moveschecked++;
 
 	// check if move is already in
 	if (hasDraft(moves, { startCoords: ourcoord, endCoords: toCoord })) return;
@@ -359,10 +381,11 @@ function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coor
 		//console.log("NOPE");
 		return;
 	} //else console.log(legalmoves.checkIfMoveLegal(legalMoves, ourcoord, toCoord),ourpiece,toCoord,theirpiece);
-
 	moves.add({ startCoords: ourcoord, endCoords: toCoord });
 }
-function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord: Coords): Coords[] {
+
+//todo: optimize by not checking on other side of square if occupied?
+function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord: Coords,excludeOwn = true): Coords[] {
 	const nearbySquares: Coords[] = [];
 	const deltas: { dx: number, dy: number }[] = [];
 
