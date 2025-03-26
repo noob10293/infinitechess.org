@@ -167,7 +167,7 @@ async function startOnlineGame(options: JoinGameMessage) {
 		variantOptions: localstorage.loadItem(options.id) as VariantOptions,
 		gameConclusion: options.gameConclusion,
 		// If the clock values are provided, adjust the timer of whos turn it is depending on ping.
-		clockValues: options.clockValues ? clock.adjustClockValuesForPing(options.clockValues) : undefined,
+		clockValues: options.clockValues ? onlinegame.adjustClockValuesForPing(options.clockValues) : undefined,
 	};
 
 	gameslot.loadGamefile({
