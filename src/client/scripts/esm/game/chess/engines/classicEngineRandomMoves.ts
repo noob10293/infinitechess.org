@@ -61,7 +61,7 @@ self.onmessage = function(e: MessageEvent) {
 	theyAre = weAre === "white" ? "black" : "white";
 
 	if (!engineInitialized) initEvalWeightsAndSearchProperties();	// initialize the eval function weights and global search properties
-	
+
 	engineStartTime = Date.now();
 	enginePositionCounter = 0;
 	runEngine();
@@ -72,7 +72,7 @@ self.onmessage = function(e: MessageEvent) {
 let engineInitialized: boolean = false;
 
 /** Externally supplied gamefile */
-let input_gamefile : gamefile;
+let input_gamefile: gamefile;
 
 /** Start time of current engine calculation in millis */
 let engineStartTime: number;
@@ -121,23 +121,33 @@ const invertedPieceNameDictionaty = invertPieceNameDictionary(pieceNameDictionar
 // legal move storage for pieces in piecelist
 const pieceTypeDictionary: { [key: number]: { rides?: Vec2[], jumps?: Vec2[], is_royal?: boolean, is_pawn?: boolean, is_huygen?: boolean } } = {
 	// 0 corresponds to a captured piece
-	1: {rides: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]}, // queen
-	2: {rides: [[1, 0], [0, 1], [-1, 0], [0, -1]]}, // rook
-	3: {rides: [[1, 1], [-1, -1], [1, -1], [-1, 1]]}, // bishop
-	4: {jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]}, // knight
-	5: {jumps: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]], is_royal: true}, // king
-	6: {jumps: [[0, 1]], is_pawn: true}, //pawn
-	7: {rides: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]],
-		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]}, // amazon
-	8: {jumps: [[2, 0], [3, 0], [2, 2], [3, 3], [0, 2], [0, 3], [-2, 2], [-3, 3], [-2, 0], [-3, 0],
-		[-2, -2], [-3, -3], [0, -2], [0, -3], [2, -2], [3, -3]]}, //hawk
-	9: {rides: [[1, 0], [0, 1], [-1, 0], [0, -1]],
-		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]}, // chancellor
-	10: {rides: [[1, 1], [-1, -1], [1, -1], [-1, 1]],
-		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]}, // archbishop
-	11: {rides: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]}, // knightrider
-	12: {jumps: [[2, 0], [-2, 0], [0, 2], [0, -2]],
-		 rides: [[1, 0], [0, 1], [-1, 0], [0, -1]], is_huygen: true } // huygen
+	1: { rides: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]] }, // queen
+	2: { rides: [[1, 0], [0, 1], [-1, 0], [0, -1]] }, // rook
+	3: { rides: [[1, 1], [-1, -1], [1, -1], [-1, 1]] }, // bishop
+	4: { jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]] }, // knight
+	5: { jumps: [[-1, 1], [0, 1], [1, 1], [-1, 0], [1, 0], [-1, -1], [0, -1], [1, -1]], is_royal: true }, // king
+	6: { jumps: [[0, 1]], is_pawn: true }, //pawn
+	7: {
+		rides: [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]],
+		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]
+	}, // amazon
+	8: {
+		jumps: [[2, 0], [3, 0], [2, 2], [3, 3], [0, 2], [0, 3], [-2, 2], [-3, 3], [-2, 0], [-3, 0],
+		[-2, -2], [-3, -3], [0, -2], [0, -3], [2, -2], [3, -3]]
+	}, //hawk
+	9: {
+		rides: [[1, 0], [0, 1], [-1, 0], [0, -1]],
+		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]
+	}, // chancellor
+	10: {
+		rides: [[1, 1], [-1, -1], [1, -1], [-1, 1]],
+		jumps: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]]
+	}, // archbishop
+	11: { rides: [[1, 2], [-1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, 1], [-2, -1]] }, // knightrider
+	12: {
+		jumps: [[2, 0], [-2, 0], [0, 2], [0, -2]],
+		rides: [[1, 0], [0, 1], [-1, 0], [0, -1]], is_huygen: true
+	} // huygen
 };
 
 // weights for the evaluation function
@@ -186,7 +196,7 @@ function initEvalWeightsAndSearchProperties() {
 	// 		delta.dy = -delta.dy;
 	// 	}
 	// }
-	
+
 	engineInitialized = true;
 }
 
@@ -205,9 +215,9 @@ let piecelisttheirs: EnginePieceType[];
 function arraysEqual(a: any[], b: Array<any>): boolean {
 	return a.every((val: any, idx: number) => val === b[idx]);
 }
-  
 
-const hasDraft = (myObjectSet: Set<MoveDraft>,draft: MoveDraft): boolean => {
+
+const hasDraft = (myObjectSet: Set<MoveDraft>, draft: MoveDraft): boolean => {
 	for (const myObject of myObjectSet) {
 		// console.log(myObject.startCoords,myObject.endCoords,draft.startCoords,draft.endCoords);
 		if (arraysEqual(myObject.startCoords, draft.startCoords) && arraysEqual(myObject.endCoords, draft.endCoords)) {
@@ -215,7 +225,7 @@ const hasDraft = (myObjectSet: Set<MoveDraft>,draft: MoveDraft): boolean => {
 			return true;
 		}
 	}
-  
+
 	return false;
 };
 function enginePieceTypeToPieceType(enginePieceType: EnginePieceType, color: "white" | "black"): string {
@@ -232,7 +242,7 @@ let moveschecked = 0;
 async function runEngine() {
 	//todo: get rid of the try thing?
 	// todo: make enginegame handle engine not returing move in time better?
-	// todo: handle different difficulties on differently fast devices?
+	// todo: handle differently fast devices causing different difficulties?
 	try {
 		// if ((gamefile.ourPieces.kingsB?.length ?? 0) !== 0) {// if black king exists in our pieces
 		// 	weAre = "black"; //we refers to the engine
@@ -242,6 +252,7 @@ async function runEngine() {
 		// 	return console.error("No king found in our pieces!");
 		// }
 		// create list of types and coords of white pieces, in order to initialize start_piecelist and start_coordlist
+
 		// todo: represent pieces better, move this into a func
 		piecelistours = [];
 		coordlistours = [];
@@ -263,10 +274,10 @@ async function runEngine() {
 			}
 		}
 		console.log("NEW");
-		const moves:Set<MoveDraft> = new Set();
+		const moves: Set<MoveDraft> = new Set();
 		const t = Date.now();
-		
-		getLegalMoves( moves);
+
+		getLegalMoves(moves);
 
 		globallyBestMove = Array.from(moves)[Math.floor(Math.random() * moves.size)]!;
 		// console.log(isBlackInTrap(start_piecelist, start_coordlist));
@@ -288,7 +299,7 @@ async function runEngine() {
 	}
 }
 
-function getLegalMoves( moves: Set<MoveDraft>) {
+function getLegalMoves(moves: Set<MoveDraft>) {
 	for (let i = 0; i < coordlistours.length; i++) {
 		const ourcoord = coordlistours[i]!;
 		const ourpiece = piecelistours[i]!;
@@ -316,7 +327,7 @@ function getLegalMoves( moves: Set<MoveDraft>) {
 	}
 }
 
-function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moves: Set<MoveDraft>, ourcoord: Coords,theirpiece: EnginePieceType,theircoord: Coords) {
+function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moves: Set<MoveDraft>, ourcoord: Coords, theirpiece: EnginePieceType, theircoord: Coords) {
 	if (!isSlidingPiece(ourpiece)) {
 		const pieceMoves = legalMoves.individual;
 		for (const mv of pieceMoves) {
@@ -342,7 +353,7 @@ function getPieceMoves(ourpiece: EnginePieceType, legalMoves: LegalMoves, moves:
 			//move is to same square
 			if (move.intersection === ourcoord) continue;
 			// they on same line
-			if (move.intersection === "infinite") {move.intersection = theircoord;}
+			if (move.intersection === "infinite") { move.intersection = theircoord; }
 			// verification should handle trying to move to friendly piece square, todo: maybe check this for more optimization?
 
 			if (move.move1.kind === "point") continue; //will never happen, todo: change ts to avoid having to do this
@@ -368,7 +379,7 @@ function handlePromotion(mv: any, md: MoveDraft, moves: Set<MoveDraft>) {
 	}
 }
 
-function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coords, toCoord:Coords) {
+function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coords, toCoord: Coords) {
 	moveschecked++;
 
 	// check if move is already in
@@ -385,7 +396,7 @@ function verifyAndAddMove(moves: Set<MoveDraft>, legalMoves: any, ourcoord: Coor
 }
 
 //todo: optimize by not checking on other side of square if occupied?
-function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord: Coords,excludeOwn = true): Coords[] {
+function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord: Coords, excludeOwn = true): Coords[] {
 	const nearbySquares: Coords[] = [];
 	const deltas: { dx: number, dy: number }[] = [];
 
@@ -418,7 +429,7 @@ function getWiggleRoomSquares(lineType: QueenLineType, wiggleRoom: number, coord
 // diag 2 is top right to bottom left(/), value is also y intercept
 type QueenLineType = 'vertical' | 'horizontal' | 'diag1' | 'diag2';
 interface QueenLine { type: QueenLineType; value: number; }
-type EnginePieceType = 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn'|"king";
+type EnginePieceType = 'queen' | 'rook' | 'bishop' | 'knight' | 'pawn' | "king";
 type EngineMove = { kind: 'line'; line: QueenLine } | { kind: 'point'; point: Coords };
 type Intersection = { pointIndex1: number; pointIndex2: number; move1: EngineMove; move2: EngineMove; intersection: Coords | null | "infinite" };
 
@@ -496,10 +507,10 @@ function intersectLines(a: QueenLine, b: QueenLine): Coords | null | "infinite" 
 
 	switch (`${a.type}_${b.type}`) {
 		case 'vertical_horizontal': return [a.value, b.value];
-		case 'vertical_diag1':      return [a.value, a.value + b.value];
-		case 'vertical_diag2':      return [a.value, b.value - a.value];
-		case 'horizontal_diag1':    return [a.value - b.value, a.value];
-		case 'horizontal_diag2':    return [b.value - a.value, a.value];
+		case 'vertical_diag1': return [a.value, a.value + b.value];
+		case 'vertical_diag2': return [a.value, b.value - a.value];
+		case 'horizontal_diag1': return [a.value - b.value, a.value];
+		case 'horizontal_diag2': return [b.value - a.value, a.value];
 		case 'diag1_diag2': {
 			const x = (b.value - a.value) / 2;
 			return [x, x + a.value];
@@ -511,10 +522,10 @@ function intersectLines(a: QueenLine, b: QueenLine): Coords | null | "infinite" 
 // Check if a point lies on a given line.
 function pointOnLine(line: QueenLine, p: Coords): boolean {
 	switch (line.type) {
-		case 'vertical':   return p[0] === line.value;
+		case 'vertical': return p[0] === line.value;
 		case 'horizontal': return p[1] === line.value;
-		case 'diag1':      return p[1] - p[0] === line.value;
-		case 'diag2':      return p[1] + p[0] === line.value;
+		case 'diag1': return p[1] - p[0] === line.value;
+		case 'diag2': return p[1] + p[0] === line.value;
 		default: return false;
 	}
 };
@@ -577,6 +588,7 @@ function getIntersectionBetweenTwoPieces(
 	// 	return intersections;
 	// }
 
+	// todo: don't check queen moves if not needed? eg. pawn and rook/rook and bishop only check rook/bishop moves?
 	const moves1 = getMoves(coord1, "queen");
 	const moves2 = getMoves(coord2, "queen");
 
@@ -596,7 +608,7 @@ function getIntersectionBetweenTwoPieces(
 	});
 	return intersections;
 }
-  
+
 // Example usage:
 // const points: Coords[] = [
 // 	[2, 3],
